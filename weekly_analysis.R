@@ -2,7 +2,7 @@ library(xts)
 library(aTSA)
 library(plyr)
 library(lmtest)
-
+library(stargazer)
 acf.bartlett <- function( acf.result, n.obs, lags = 20, title='Autocorrelation Function',lower.lim = -0.25){
   
   plot(acf.result$acf[1:lags], 
@@ -71,7 +71,10 @@ weekly_ts <- xts(trump_weekly_series, order.by=as.Date(row.names(trump_weekly_se
 plot(weekly_ts,main=NA)
 hist(weekly_ts, main=NA,xlab = NA)
 
-adf.test(weekly_ts,nlag = 10)
+a.origin <- acf(weekly_ts)
+acf.bartlett(a.origin, length(weekly_ts), title = NA)
+
+plot( pacf(weekly_ts,lag=20), main = NA)
 
 
 ## ----------------------------------------
@@ -97,8 +100,11 @@ p <- pacf( log_weekly_tweets,lag.max = 20 )
 
 plot(p, main = NA)
 
-adf.test( log_weekly_tweets, nlag =5 )
+adf.log <- adf.test( log_weekly_tweets, nlag =7 )
 
+a <- adf.test(weekly_ts,nlag = 7)
+
+stargazer(adf.log)
 ## Null not rejected at lag 5. Hence, it might have a unit root. 
 
 
@@ -114,6 +120,8 @@ plot(ts,main=NA)
 plot(lg.tw.d1,type='l')
 adf.test(lg.tw.d1,nlag=7)
 
+stargazer(adf.test(lg.tw.d1,nlag=7))
+
 a.d1 <- acf(ts,lag.max = 30)
 
 acf.bartlett(a.d1, n.obs = length(ts), lags=15, lower.lim=-0.5,title = NA)
@@ -127,8 +135,6 @@ plot(p.d1, main=NA)
 model <- arima( log_weekly_tweets, order=c(0,1,1),method = 'ML')
 model
 coeftest(model)
-
-stargazer(model)
 
 mododel.residual <- model$residuals
 plot( mododel.residual, type='l' )
@@ -146,19 +152,6 @@ shapiro.test(mododel.residual)
 model.2 <- arima( log_weekly_tweets, order=c(0,1,2),method = 'ML')
 model.2
 
-model.3 <- arima( log_weekly_tweets, order=c(0,1,3),method = 'ML')
-model.3
-
-stargazer(model, model.2, model.3)
-
-mododel.residual <- model$residuals
-plot( mododel.residual, type='l' )
-z <- acf(mododel.residual,lag.max = 20)
-
-acf.bartlett( z, length(mododel.residual), title='ACF Plot for Residuals')
-
-qqnorm(mododel.residual)
-qqline(mododel.residual)
 
 for (i in (3:10)){
   print( Box.test(mododel.residual, type = "Ljung-Box", lag = i, fitdf = 2)  )
@@ -176,15 +169,38 @@ acf.bartlett( z, length(model.2.residual), title=NA)
 qqnorm(model.2.residual)
 qqline(model.2.residual)
 shapiro.test(model.2.residual)
+## ----------------------------------------
+### Log, ARIMA (1,1,1)
+## ----------------------------------------
+model.1.1 <- arima( log_weekly_tweets, order=c(1,1,1),method = 'ML')
+model.1.1
+
+coeftest(model.1.1)
+
+stargazer(model, model.2, model.1.1)
+model.1.1.residual <- model.1.1$residuals
+plot( model.1.1.residual, type='l' )
+z <- acf(model.1.1.residual,lag.max = 20)
+
+acf.bartlett( z, length(model.1.1.residual), title=NA)
+
+qqnorm(model.1.1.residual)
+qqline(model.1.1.residual)
+
+for (i in (3:10)){
+  print( Box.test(model.1.1.residual, type = "Ljung-Box", lag = i, fitdf = 2)  )
+  
+  ## 16 
+}
+
 
 ## ----------------------------------------
 ### Log, ARIMA (4,1,0)
 ## ----------------------------------------
-model <- arima( log_weekly_tweets, order=c(4,1,0),method = 'ML', include.drift = True)
+model <- arima( log_weekly_tweets, order=c(4,1,0),method = 'ML')
 model
 coeftest(model)
 
-mean(diff(log_weekly_tweets))
 
 
 mododel.residual <- model$residuals
@@ -208,12 +224,23 @@ qqnorm(mododel.residual,main = NA)
 qqline(mododel.residual)
 
 ## ----------------------------------------
+### Log, ARIMA (4,1,1)
+## ----------------------------------------
+model.411 <- arima( log_weekly_tweets, order=c(4,1,1),method = 'ML')
+model.411
+coeftest(model.411)
+
+stargazer(model,model.411, model.5)
+
+## ----------------------------------------
 ## prediction
 ## ----------------------------------------
 
 # log_weekly_ts <- xts(log_weekly_tweets, order.by=as.POSIXct( as.Date(row.names(log_weekly_tweets))))
-model.of.choice <- arima( log_weekly_tweets, order=c(0,1,2),method = 'ML')
+model.of.choice <- arima( log_weekly_tweets, order=c(1,0,1),method = 'ML')
 model.of.choice
+coeftest(model.of.choice)
+
 predictions <- predict(model.of.choice, n.ahead = 5)
 
 exp(predictions$pred + 0.5*predictions$se *predictions$se   )
@@ -224,6 +251,33 @@ log(forcast.values[,2])
 
 f <- forecast(model.of.choice, lead = 5)
 stargazer(f)
+
+
+
+
+## ----------------------------------------
+## Overparameterized Test on 111 012
+## ----------------------------------------
+
+model.1.1 <- arima( log_weekly_tweets, order=c(1,1,1),method = 'ML')
+model.211 <- arima( log_weekly_tweets, order=c(2,1,1),method = 'ML')
+model.112 <- arima( log_weekly_tweets, order=c(1,1,2),method = 'ML')
+
+
+stargazer(model.1.1,model.211,model.112)
+
+
+model.2 <- arima( log_weekly_tweets, order=c(0,1,2),method = 'ML')
+model.112 <- arima( log_weekly_tweets, order=c(1,1,2),method = 'ML')
+model.013 <- arima( log_weekly_tweets, order=c(0,1,3),method = 'ML')
+
+stargazer(model.2, model.112, model.013)
+
+
+plot( log_weekly_tweets[1:166], log_weekly_tweets[2:167] )
+
+
+
 
 
 
